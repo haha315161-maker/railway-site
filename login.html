@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Giriş Yap</title>
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="auth-page">
+
+  <div class="auth-box">
+
+    <a href="/" class="back">← Ana Sayfa</a>
+
+    <h1>Giriş Yap</h1>
+
+    <form id="loginForm">
+
+      <div class="form-group">
+        <label for="email">E-posta</label>
+
+        <input
+          type="email"
+          id="email"
+          name="email"
+          placeholder="E-posta adresin"
+          autocomplete="email"
+          required
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="password">Şifre</label>
+
+        <input
+          type="password"
+          id="password"
+          name="password"
+          placeholder="Şifren"
+          autocomplete="current-password"
+          required
+        >
+      </div>
+
+      <div class="forgot-link">
+        <a href="/forgot-password.html">
+          Şifremi unuttum
+        </a>
+      </div>
+
+      <button
+        type="submit"
+        id="loginButton"
+      >
+        Giriş Yap
+      </button>
+
+      <div id="message"></div>
+
+    </form>
+
+    <p class="switch">
+      Hesabın yok mu?
+      <a href="/register.html">Kayıt ol</a>
+    </p>
+
+  </div>
+
+  <script>
+
+    let csrfToken = null;
+
+    const form =
+      document.getElementById("loginForm");
+
+    const emailInput =
+      document.getElementById("email");
+
+    const passwordInput =
+      document.getElementById("password");
+
+    const loginButton =
+      document.getElementById("loginButton");
+
+    const message =
+      document.getElementById("message");
+
+
+    function showMessage(text, type = "error") {
+
+      message.textContent = text;
+      message.className = type;
+
+    }
+
+
+    // ==================================================
+    // CSRF TOKEN AL
+    // ==================================================
+
+    async function getCsrfToken(force = false) {
+
+      const response =
+        await fetch(
+          "/api/csrf-token",
+          {
+            method: "GET",
+
+            credentials: "same-origin",
+
+            cache: "no-store"
+          }
+        );
+
+
+      if (!response.ok) {
+
+        throw new Error(
+          "CSRF token alınamadı."
+        );
+
+      }
+
+
+      const data =
+        await response.json();
+
+
+      if (
+        !data.success ||
+        typeof data.csrfToken !== "string" ||
+        !data.csrfToken
+      ) {
+
+        throw new Error(
+          "Geçerli CSRF token alınamadı."
+        );
+
+      }
+
+
+      csrfToken =
+        data.csrfToken;
+
+
+      return csrfToken;
+
+    }
+
+
+    // ==================================================
+    // LOGIN
+    // ==================================================
+
+    async function sendLogin() {
+
+      if (!csrfToken) {
+
+        await getCsrfToken();
+
+      }
+
+
+      return fetch(
+        "/api/login",
+        {
+          method: "POST",
+
+          credentials: "same-origin",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            "X-CSRF-Token":
+              csrfToken
+          },
+
+          body:
+            JSON.stringify({
+              email:
+                emailInput.value.trim(),
+
+              password:
+                passwordInput.value
+            })
+        }
+      );
+
+    }
+
+
+    // ==================================================
+    // FORM
+    // ==================================================
+
+    form.addEventListener(
+      "submit",
+      async (event) => {
+
+        event.preventDefault();
+
+
+        loginButton.disabled = true;
+
+        loginButton.textContent =
+          "Giriş yapılıyor...";
+
+
+        showMessage(
+          "Giriş kontrol ediliyor...",
+          "info"
+        );
+
+
+        try {
+
+          let response =
+            await sendLogin();
+
+
+          /*
+           * CSRF hatası geldiyse tokenı yenile
+           * ve isteği yalnızca bir kez tekrar gönder.
+           */
+
+          if (response.status === 403) {
+
+            csrfToken = null;
+
+            await getCsrfToken();
+
+            response =
+              await sendLogin();
+
+          }
+
+
+          let result = null;
+
+
+          try {
+
+            result =
+              await response.json();
+
+          } catch {
+
+            result = null;
+
+          }
+
+
+          if (!response.ok) {
+
+            throw new Error(
+              result?.message ||
+              "Giriş yapılamadı."
+            );
+
+          }
+
+
+          if (
+            result?.success
+          ) {
+
+            showMessage(
+              "Giriş başarılı. Yönlendiriliyorsun...",
+              "success"
+            );
+
+
+            window.location.href =
+              result.redirect ||
+              "/profile.html";
+
+
+            return;
+
+          }
+
+
+          throw new Error(
+            result?.message ||
+            "E-posta veya şifre hatalı."
+          );
+
+
+        } catch (error) {
+
+          console.error(
+            "LOGIN ERROR:",
+            error
+          );
+
+
+          csrfToken = null;
+
+
+          showMessage(
+            error.message ||
+            "Giriş sırasında bir hata oluştu.",
+            "error"
+          );
+
+
+        } finally {
+
+          loginButton.disabled = false;
+
+          loginButton.textContent =
+            "Giriş Yap";
+
+        }
+
+      }
+    );
+
+
+    // ==================================================
+    // SAYFA AÇILINCA TOKEN AL
+    // ==================================================
+
+    (async function initCsrf() {
+
+      try {
+
+        await getCsrfToken();
+
+      } catch (error) {
+
+        console.error(
+          "CSRF INIT ERROR:",
+          error
+        );
+
+        showMessage(
+          "Güvenlik bağlantısı kurulamadı. Sayfayı yenileyin.",
+          "error"
+        );
+
+      }
+
+    })();
+
+  </script>
+
+</body>
+
+</html>

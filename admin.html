@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>VSC Admin</title>
+
+<style>
+
+body {
+  margin:0;
+  background:#09090d;
+  color:white;
+  font-family:Arial,sans-serif;
+}
+
+.container {
+  max-width:1000px;
+  margin:auto;
+  padding:30px;
+}
+
+h1 {
+  margin-bottom:30px;
+}
+
+.conversation {
+  background:#15151b;
+  border:1px solid #292932;
+  border-radius:18px;
+  padding:20px;
+  margin-bottom:20px;
+}
+
+.message {
+  padding:12px;
+  border-radius:12px;
+  margin:8px 0;
+  white-space:pre-wrap;
+}
+
+.user {
+  background:#27272f;
+}
+
+.admin {
+  background:#6d28d9;
+}
+
+textarea {
+  width:100%;
+  min-height:80px;
+  margin-top:10px;
+  padding:12px;
+  background:#09090d;
+  color:white;
+  border:1px solid #333;
+  border-radius:10px;
+  resize:vertical;
+}
+
+button {
+  margin-top:10px;
+  padding:11px 18px;
+  border:0;
+  border-radius:10px;
+  background:#7c3aed;
+  color:white;
+  cursor:pointer;
+  font-weight:bold;
+}
+
+small {
+  opacity:.5;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>🛠 VSC Destek Yönetimi</h1>
+
+<div id="conversations">
+  Yükleniyor...
+</div>
+
+</div>
+
+<script>
+
+let csrfToken = "";
+
+async function getCsrfToken() {
+
+    const response = await fetch(
+        "/api/csrf-token",
+        {
+            credentials: "same-origin"
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error(
+            "CSRF endpoint çalışmıyor: " +
+            response.status
+        );
+    }
+
+    const data = await response.json();
+
+    if (!data.success) {
+        throw new Error(
+            "CSRF token alınamadı."
+        );
+    }
+
+    csrfToken = data.csrfToken;
+}
+
+
+async function loadSupport() {
+
+    const box =
+        document.getElementById(
+            "conversations"
+        );
+
+    box.innerHTML =
+        "<p>Destek mesajları yükleniyor...</p>";
+
+    try {
+
+        const response = await fetch(
+            "/api/admin/support",
+            {
+                credentials: "same-origin"
+            }
+        );
+
+        if (response.status === 401) {
+
+            box.innerHTML = `
+                <h2>Giriş yapman gerekiyor.</h2>
+                <p>
+                    Önce admin hesabınla giriş yap.
+                </p>
+            `;
+
+            return;
+        }
+
+        if (response.status === 403) {
+
+            box.innerHTML = `
+                <h2>Yetkin yok.</h2>
+                <p>
+                    Giriş yaptığın hesabın
+                    ADMIN_EMAIL ile aynı olduğundan emin ol.
+                </p>
+            `;
+
+            return;
+        }
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Sunucu hatası: " +
+                response.status
+            );
+
+        }
+
+        const data =
+            await response.json();
+
+        if (!data.success) {
+
+            throw new Error(
+                data.message ||
+                "Destek mesajları alınamadı."
+            );
+
+        }
+
+        box.innerHTML = "";
+
+        if (
+            !data.messages ||
+            data.messages.length === 0
+        ) {
+
+            box.innerHTML = `
+                <div class="conversation">
+                    <h2>Henüz destek mesajı yok.</h2>
+                    <p>
+                        Kullanıcılar mesaj gönderdiğinde
+                        burada görünecek.
+                    </p>
+                </div>
+            `;
+
+            return;
+        }
+
+
+        const users = {};
+
+        data.messages.forEach(
+            message => {
+
+                if (!users[message.user_id]) {
+                    users[message.user_id] = [];
+                }
+
+                users[
+                    message.user_id
+                ].push(message);
+
+            }
+        );
+
+
+        Object.keys(users).forEach(
+            userId => {
+
+                const messages =
+                    users[userId];
+
+                const first =
+                    messages[0];
+
+                const conversation =
+                    document.createElement(
+                        "div"
+                    );
+
+                conversation.className =
+                    "conversation";
+
+
+                const title =
+                    document.createElement(
+                        "h2"
+                    );
+
+                title.textContent =
+                    first.username +
+                    " — " +
+                    first.email;
+
+                conversation.appendChild(
+                    title
+                );
+
+
+                messages.forEach(
+                    message => {
+
+                        const item =
+                            document.createElement(
+                                "div"
+                            );
+
+                        item.className =
+                            "message " +
+                            message.sender;
+
+
+                        const text =
+                            document.createElement(
+                                "div"
+                            );
+
+                        text.textContent =
+                            message.message;
+
+
+                        const date =
+                            document.createElement(
+                                "small"
+                            );
+
+                        date.textContent =
+                            new Date(
+                                message.created_at
+                            ).toLocaleString(
+                                "tr-TR"
+                            );
+
+
+                        item.appendChild(
+                            text
+                        );
+
+                        item.appendChild(
+                            date
+                        );
+
+                        conversation.appendChild(
+                            item
+                        );
+
+                    }
+                );
+
+
+                const textarea =
+                    document.createElement(
+                        "textarea"
+                    );
+
+                textarea.placeholder =
+                    "Kullanıcıya cevap yaz...";
+
+                textarea.maxLength = 2000;
+
+
+                const button =
+                    document.createElement(
+                        "button"
+                    );
+
+                button.textContent =
+                    "Cevap Gönder";
+
+
+                button.onclick =
+                    async () => {
+
+                        const message =
+                            textarea.value.trim();
+
+                        if (!message) {
+
+                            alert(
+                                "Önce mesaj yaz."
+                            );
+
+                            return;
+                        }
+
+
+                        button.disabled = true;
+
+                        try {
+
+                            const response =
+                                await fetch(
+                                    "/api/admin/support/reply",
+                                    {
+                                        method: "POST",
+
+                                        credentials:
+                                            "same-origin",
+
+                                        headers: {
+                                            "Content-Type":
+                                                "application/json",
+
+                                            "X-CSRF-Token":
+                                                csrfToken
+                                        },
+
+                                        body:
+                                            JSON.stringify({
+                                                userId:
+                                                    Number(
+                                                        userId
+                                                    ),
+
+                                                message
+                                            })
+                                    }
+                                );
+
+
+                            const result =
+                                await response.json();
+
+
+                            if (!response.ok) {
+
+                                throw new Error(
+                                    result.message ||
+                                    "Cevap gönderilemedi."
+                                );
+
+                            }
+
+
+                            textarea.value = "";
+
+                            await loadSupport();
+
+                        } catch (error) {
+
+                            alert(
+                                error.message
+                            );
+
+                        } finally {
+
+                            button.disabled =
+                                false;
+
+                        }
+
+                    };
+
+
+                conversation.appendChild(
+                    textarea
+                );
+
+                conversation.appendChild(
+                    button
+                );
+
+                box.appendChild(
+                    conversation
+                );
+
+            }
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "ADMIN ERROR:",
+            error
+        );
+
+        box.innerHTML = `
+            <div class="conversation">
+                <h2>⚠️ Hata</h2>
+                <p>${escapeHtml(
+                    error.message
+                )}</p>
+                <button
+                    onclick="loadSupport()"
+                >
+                    Tekrar Dene
+                </button>
+            </div>
+        `;
+
+    }
+
+}
+
+
+function escapeHtml(text) {
+
+    const div =
+        document.createElement(
+            "div"
+        );
+
+    div.textContent = text;
+
+    return div.innerHTML;
+}
+
+
+async function startAdmin() {
+
+    try {
+
+        await getCsrfToken();
+
+        await loadSupport();
+
+    } catch (error) {
+
+        console.error(
+            error
+        );
+
+        document.getElementById(
+            "conversations"
+        ).innerHTML = `
+            <div class="conversation">
+
+                <h2>⚠️ Sunucu bağlantı hatası</h2>
+
+                <p>
+                    ${escapeHtml(
+                        error.message
+                    )}
+                </p>
+
+                <button
+                    onclick="startAdmin()"
+                >
+                    Tekrar Dene
+                </button>
+
+            </div>
+        `;
+
+    }
+
+}
+
+
+startAdmin();
+
+</script>
+
+</body>
+</html>

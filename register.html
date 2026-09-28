@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+  <title>Kayıt Ol</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="auth-page">
+
+<div class="auth-box">
+
+  <a href="/" class="back">← Ana Sayfa</a>
+
+  <h1>Hesap oluştur.</h1>
+
+  <p class="auth-description">
+    Kişisel web sitesine katılmak için kayıt ol.
+  </p>
+
+  <form id="registerForm">
+
+    <label>Kullanıcı adı</label>
+
+    <input
+      type="text"
+      name="username"
+      placeholder="kullaniciadi"
+      minlength="3"
+      maxlength="30"
+      autocomplete="username"
+      required
+    >
+
+    <label>E-posta</label>
+
+    <input
+      type="email"
+      name="email"
+      placeholder="ornek@mail.com"
+      autocomplete="email"
+      required
+    >
+
+    <label>Şifre</label>
+
+    <input
+      type="password"
+      name="password"
+      placeholder="En az 6 karakter"
+      minlength="6"
+      maxlength="128"
+      autocomplete="new-password"
+      required
+    >
+
+    <button
+      type="submit"
+      class="button primary full"
+      id="registerButton"
+    >
+      Kayıt Ol
+    </button>
+
+    <div id="message"></div>
+
+  </form>
+
+  <p class="switch">
+    Zaten hesabın var mı?
+    <a href="/login.html">Giriş yap</a>
+  </p>
+
+</div>
+
+<script src="app.js"></script>
+
+</body>
+</html>
